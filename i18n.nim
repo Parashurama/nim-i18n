@@ -1,3 +1,66 @@
+#
+#  Nim gettext-like module
+#  (c) Copyright 2016 Parashurama
+#
+#  See the file "LICENSE" (MIT)
+#
+
+## This module provides a gettext-like interface for internationalisation.
+##
+## Examples:
+##
+## .. code-block:: Nim
+##
+##  import i18n
+##  # load current locale from env
+##  setTextLocale()
+##  # Locale can also be explicitely set.
+##  setTextLocale("fr_FR.UTF-8")
+##  # Locale can lifted from env, but encoding be manually set.
+##  setTextLocale("", "UTF-8")
+##
+##  # bind a domain tag to a specific folder.
+##  # see bindTextDomain documentation for details.
+##  bindTextDomain("first_domain", "/path/to/catalogues")
+##  bindTextDomain("second_domain", "/path/to/catalogues")
+##  bindTextDomain("third_domain", "/other/path/to/catalogues")
+##
+##  # Set current text domain (set default for gettext and friends)
+##  # also load catalogue first time it is set.
+##  setTextDomain("first_domain")
+##
+##  # gettext lookup inside the current domain for msgid translation.
+##  # ``tr`` is an alias for gettext.
+##  echo tr"msgid to lookup in first_domain"
+##  echo gettext"other msgid to lookup in first_domain"
+##
+##  # Set a new current domain (and load a new catalogue)
+##  setTextDomain("second_domain")
+##
+##  echo tr"msgid to lookup in second_domain"
+##
+##  # d*gettext family allow to lookup into a different domain
+##  # without changing the current domain.
+##  echo dgettext("first_domain", "lookup in first_domain")
+##
+##  # n*gettext family is like gettext but allow a plural form
+##  # depending on current locale and its integer argument.
+##  echo ngettext("%i hour", "%i hours", 1)
+##  echo ngettext("%i hour", "%i hours", 2)
+##
+##  # the *pgettext family allow for looking up
+##  # a different context inside the same domain.
+##  echo pgettext("context", "msgid")
+##
+##  # the various family function can also be combined
+##  # for more complicated lookups. ex:
+##
+##  # lookup plural form for "context2" inside "third_domain".
+##  dnpgettext("third_domain", "context2", "%i hour", "%i hours", 1)
+##
+##  # same thing but lookup inside current domain.
+##  npgettext("context2", "%i hour", "%i hours", 2)
+
 import os
 import strutils
 import encodings
@@ -427,7 +490,7 @@ template ngettext*(msgid, msgid_plural: string; num: int): string =
     dngettext_impl(CURRENT_CATALOGUE, msgid, msgid_plural, num, instantiationInfo())
 
 template gettext*(msgid: string): string =
-    ## Attempt to translate a ``msgid`` into the user's native language (as set by *setTextLocale*),
+    ## Attempt to translate a ``msgid`` into the user's native language (as set by **setTextLocale**),
     ## by looking up the translation in a message catalog. (loaded according to the current text domain and locale.)
     ## If translation is not found ``msgid`` is returned.
     when not defined(release):
@@ -441,7 +504,8 @@ template gettext*(msgid: string): string =
     dgettext_impl(CURRENT_CATALOGUE, msgid, instantiationInfo())
 
 template tr*(msgid: string): string =
-    ## Temporary fix for https://github.com/nim-lang/Nim/issues/4128
+    ## Alias for **gettext**. usage: tr"msgid"
+    # Temporary fix for https://github.com/nim-lang/Nim/issues/4128
     when not defined(release):
         if CURRENT_CATALOGUE == DEFAULT_NULL_CATALOGUE:
             debug("warning: TextDomain is not set. " &
@@ -454,7 +518,7 @@ template tr*(msgid: string): string =
 
 
 template pgettext*(msgctxt, msgid: string): string =
-    ## Same as **gettext**, but ``msgctxt``is used to suply a specific context
+    ## Same as **gettext**, but ``msgctxt`` is used to suply a specific context
     ## for ``msgid`` lookup inside current domain.
     gettext(msgctxt & MSGCTXT_SEPARATOR & msgid)
 
@@ -505,9 +569,11 @@ proc bindTextDomain*(domain: string; dir_path: string) =
 
 proc setTextLocale*(locale="", codeset="") =
     ## Sets text locale used for message translation. ``locale`` must be a valid expression in the form:
-    ## ``language``[``_territory``][.``codeset``] (modifier is not currently used!)
+    ## **language** [_**territory**][. **codeset**] (**@modifier** is not currently used!)
     ##
     ## If called without argument or with an empty string, locale is lifted from calling environnement.
+    ##
+    ## Beware: **setTextLocale** is not related to posix **setLocale** and so must be set separately.
     var locale_expr, codeset_expr: string
 
     if locale.len == 0:
