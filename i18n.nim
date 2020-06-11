@@ -96,7 +96,7 @@ type
         entries: seq[TableEntry]
         key_cache: string
 
-    LineInfo = tuple[filename: string, line: int]
+    LineInfo = tuple[filename: string, line: int, column: int]
 
 const TABLE_MAXIMUM_LOAD = 0.5
 const MSGCTXT_SEPARATOR = '\4'
@@ -195,7 +195,7 @@ proc get_empty_bucket(self: Catalogue; key: StringEntry; value: string): int =
     let endp  = index # if index returns to initial value; unable to insert value
     var step = 1
 
-    while not self.entries[index].value.isNil:
+    while self.entries[index].value != "":
         index = (index + step) and mask # linear probing
         inc(step)
         if index == endp:
@@ -221,7 +221,7 @@ proc get_bucket(self: Catalogue; key: string): int =
     if self.entries.len == 0:
         return -1
 
-    while self.entries[index].value.isNil or not self.entries[index].key.equal(key, self.key_cache):
+    while self.entries[index].value == "" or not self.entries[index].key.equal(key, self.key_cache):
         index = (index + step) and mask # linear probing
         inc(step)
         if index == endp:
@@ -256,7 +256,7 @@ proc newCatalogue(domain: string; filename: string) : Catalogue =
     new(result)
 #~    echo("loading catalogue: '", domain, "' in file: ", filename)
     var f = newFileStream(filename, fmRead)
-    if f.isNil:
+    if f == nil:
         raise newException(IOError, "Catalogue file '$#' not found for domain '$#'!".format(filename, domain))
 
     # read magic
@@ -339,7 +339,7 @@ proc newCatalogue(domain: string; filename: string) : Catalogue =
 
         # looks for NULL byte in key
         var null_byte = c_memchr(result.key_cache[koffset].addr, '\0', klength)
-        if not null_byte.isNil: # key has plural
+        if null_byte != nil: # key has plural
             let ksplit = cast[ByteAddress](null_byte) -% cast[ByteAddress](result.key_cache[0].addr)
 
             let plural_msg = result.key_cache[koffset..<ksplit]
@@ -351,7 +351,7 @@ proc newCatalogue(domain: string; filename: string) : Catalogue =
             var index = 0
             while true:
                 var null_byte = c_memchr(value_cache[voffset].addr, '\0', remaining + 1)
-                if null_byte.isNil or remaining <= 0:
+                if null_byte == nil or remaining <= 0:
                     break
                 let vsplit = cast[ByteAddress](null_byte) -% cast[ByteAddress](value_cache[0].addr)
 
@@ -374,7 +374,7 @@ proc newCatalogue(domain: string; filename: string) : Catalogue =
 
 proc makeDiscardable[T](a: T): T {.discardable, inline.} = a
 
-template debug(message: expr; info: LineInfo): expr =
+template debug(message: untyped; info: LineInfo): untyped =
     when not defined(release):
         let filepos {.gensym.} = info[0] & "(" & $info[1] & ") "
         echo(filepos, message)
@@ -394,14 +394,14 @@ proc find_catalogue(localedir, domain: string; locales: seq[string]): string =
 
         if existsFile(result):
             return # return catalogue path
-    result = nil
+    result = ""
 
 proc set_text_domain_impl(domain: string; info: LineInfo) : Catalogue =
     result = CATALOGUE_REFS.getOrDefault(domain)
-    if result.isNil: # domain not found in list of loaded catalogues.
+    if result == nil: # domain not found in list of loaded catalogues.
         let localedir = DOMAIN_REFS.getOrDefault(domain) # try lookup domain in registered domains.
         let file_path = find_catalogue(localedir ?? DEFAULT_LOCALE_DIR, domain, CURRENTS_LANGS)
-        if file_path.isNil: # catalogue file not found!
+        if file_path == "": # catalogue file not found!
             when not defined(release):
                 debug("warning: TextDomain '$#' was not found for locale '$#'.".format(domain, $CURRENTS_LANGS) &
                       " (use 'bindTextDomain' to add a folder in the search path)", info)
@@ -437,7 +437,7 @@ proc dgettext_impl( catalogue: Catalogue;
                     msgid: string;
                     info: LineInfo): string {.inline.} =
     shallowCopy result, catalogue.lookup(msgid)
-    if result.isNil:
+    if result == "":
         debug("Warning: translation not found! : " &
               "'$#' in domain '$#'".format(msgid, catalogue.domain), info)
         shallowCopy result, catalogue.decode_impl(msgid)
@@ -448,7 +448,7 @@ proc dngettext_impl(catalogue: Catalogue;
                     num: int;
                     info: LineInfo): string =
     let plurals = catalogue.plural_lookup.getOrDefault(msgid)
-    if plurals.isNil:
+    if plurals == []:
         debug("Warning: translation not found! : " &
               "'$#/$#' in domain '$#'".format(msgid, msgid_plural, catalogue.domain), info)
         if num == 1:
@@ -542,7 +542,7 @@ template setTextDomain*(domain: string) : bool =
     ## **npgettext** functions. Returns ``false`` if catalogue associated with
     ## ``domain`` could not be found.
     let catalogue {.gensym.} = set_text_domain_impl(domain, instantiationInfo())
-    if not catalogue.isNil: # if catalogue was found
+    if catalogue != nil: # if catalogue was found
         CURRENT_CATALOGUE = catalogue
         makeDiscardable(true)
     else:
