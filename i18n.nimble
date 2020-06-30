@@ -1,6 +1,6 @@
 [Package]
 name          : "i18n"
-version       : "0.1.0"
+version       : "0.1.1"
 author        : "Parashurama"
 description   : "Bring a gettext-like internationalisation module to Nim"
 license       : "MIT"
