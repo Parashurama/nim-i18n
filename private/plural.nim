@@ -103,7 +103,7 @@ proc evaluate*(symbols: openArray[State]; value: int): int =
     result = stack.pop
 
 proc parse_constant(buf: string, pos: var int): int =
-    while buf[pos] in {'0'..'9'}:
+    while pos < len(buf) and buf[pos] in {'0'..'9'} :
         result = (result * 10) + (ord(buf[pos]) - ord('0'))
         inc(pos)
 
